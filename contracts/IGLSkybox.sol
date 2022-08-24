@@ -13,8 +13,7 @@ import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 import "@openzeppelin/contracts/token/ERC721/extensions/ERC721URIStorage.sol";
 import "@openzeppelin/contracts/finance/PaymentSplitter.sol";
 
-
-contract GenericNFTPumpContract is Ownable, ERC721, ERC721URIStorage, PaymentSplitter {
+contract IGLSkybox is Ownable, ERC721, ERC721URIStorage, PaymentSplitter {
     using Counters for Counters.Counter;
     using ECDSA for bytes32;
     using Strings for uint256;
@@ -31,15 +30,16 @@ contract GenericNFTPumpContract is Ownable, ERC721, ERC721URIStorage, PaymentSpl
     Counters.Counter private _tokenSupply;
     Counters.Counter private _freeSupply;
 
-    uint256 public constant MAX_TOKENS = 3100;
+    uint256 public constant MAX_TOKENS = 3000;
     uint256 public publicMintMaxLimit = 50;
     uint256 public whitelistMintMaxLimit = 50;
-    uint256 public tokenPrice = 0.14 ether;
-    uint256 public whitelistTokenPrice = 0.055 ether;
+    uint256 public tokenPrice = 0.06 ether;
+    uint256 public whitelistTokenPrice = 0.00 ether;
     uint256 public maxWhitelistPassMints = 900;
+    uint256 public buyBonusMultiplier = 1;
 
     bool public publicMintIsOpen = false;
-    bool public privateMintIsOpen = true;
+    bool public privateMintIsOpen = false;
     bool public revealed = false;
 
     string _baseTokenURI;
@@ -47,11 +47,12 @@ contract GenericNFTPumpContract is Ownable, ERC721, ERC721URIStorage, PaymentSpl
     string public hiddenMetadataUri;
 
     address private _ContractVault = 0x0000000000000000000000000000000000000000;
-    address private _ClaimsPassSigner = 0x0000000000000000000000000000000000000000;
+    address private _ClaimsPassSigner =
+        0x0000000000000000000000000000000000000000;
 
     mapping(address => bool) whitelistedAddresses;
 
-    string public Author = "techoshi.eth";
+    string public Author = "Diablo";
     string public ProjectTeam = "nftpumps";
 
     struct WhitelistClaimPass {
@@ -75,10 +76,11 @@ contract GenericNFTPumpContract is Ownable, ERC721, ERC721URIStorage, PaymentSpl
         return signer == _ClaimsPassSigner;
     }
 
-    modifier isWhitelisted(uint8 amount, WhitelistClaimPass memory whitelistClaimPass) {
-        bytes32 digest = keccak256(
-            abi.encode(amount, msg.sender)
-        );
+    modifier isWhitelisted(
+        uint256 amount,
+        WhitelistClaimPass memory whitelistClaimPass
+    ) {
+        bytes32 digest = keccak256(abi.encode(amount, msg.sender));
 
         require(
             _isVerifiedWhitelistClaimPass(digest, whitelistClaimPass),
@@ -94,8 +96,13 @@ contract GenericNFTPumpContract is Ownable, ERC721, ERC721URIStorage, PaymentSpl
         address _signer,
         string memory __baseTokenURI,
         string memory _hiddenMetadataUri,
-        address[] memory _payees, uint256[] memory _shares
-    ) ERC721(contractName, contractSymbol)  PaymentSplitter(_payees, _shares) payable {
+        address[] memory _payees,
+        uint256[] memory _shares
+    )
+        payable
+        ERC721(contractName, contractSymbol)
+        PaymentSplitter(_payees, _shares)
+    {
         _ContractVault = _vault;
         _ClaimsPassSigner = _signer;
         _tokenSupply.increment();
@@ -103,16 +110,15 @@ contract GenericNFTPumpContract is Ownable, ERC721, ERC721URIStorage, PaymentSpl
         _safeMint(msg.sender, 1);
         _baseTokenURI = __baseTokenURI;
         hiddenMetadataUri = _hiddenMetadataUri;
-        
     }
-    
+
     function withdraw() external onlyOwner {
         payable(_ContractVault).transfer(address(this).balance);
     }
 
     function whitelistClaimMint(
-        uint8 quantity, //Whitelist,
-        uint8 claimable,
+        uint256 quantity, //Whitelist,
+        uint256 claimable,
         WhitelistClaimPass memory whitelistClaimPass
     ) external payable isWhitelisted(claimable, whitelistClaimPass) {
         require(
@@ -120,11 +126,17 @@ contract GenericNFTPumpContract is Ownable, ERC721, ERC721URIStorage, PaymentSpl
             "Not enough ether sent"
         );
 
-        uint256 supply = _tokenSupply.current();        
-
+        uint256 supply = _tokenSupply.current();
+        quantity = quantity * buyBonusMultiplier;
         require(privateMintIsOpen == true, "Claim Mint Closed");
-        require(quantity + (supply-1) <= MAX_TOKENS, "Not enough tokens remaining");
-        require(quantity <= claimable, "Mint quantity can't be greater than claimable");
+        require(
+            quantity + (supply - 1) <= MAX_TOKENS,
+            "Not enough tokens remaining"
+        );
+        require(
+            quantity <= claimable,
+            "Mint quantity can't be greater than claimable"
+        );
         require(quantity > 0, "Mint quantity must be greater than zero");
         require(quantity <= whitelistMintMaxLimit, "Mint quantity too large");
         require(
@@ -132,22 +144,34 @@ contract GenericNFTPumpContract is Ownable, ERC721, ERC721URIStorage, PaymentSpl
             "Not enough free mints remaining"
         );
 
-        // giveAwayMints[msg.sender] += quantity;        
+        // giveAwayMints[msg.sender] += quantity;
 
         for (uint256 i = 0; i < quantity; i++) {
             _tokenSupply.increment();
             _freeSupply.increment();
             _safeMint(msg.sender, supply + i);
         }
+    }
 
+    function updateMultiplier(uint256 _multiplier) external onlyOwner {
+        require(
+            _multiplier > 0 && _multiplier < 5,
+            "_multiplier must be greater than zero"
+        );
+        buyBonusMultiplier = _multiplier;
     }
 
     function openMint(uint256 quantity) external payable {
         require(tokenPrice * quantity <= msg.value, "Not enough ether sent");
         uint256 supply = _tokenSupply.current();
-        require(publicMintIsOpen == true, "Public Mint Closed");
         require(quantity <= publicMintMaxLimit, "Mint amount too large");
-        require(quantity + (supply-1) <= MAX_TOKENS, "Not enough tokens remaining");
+
+        quantity = quantity * buyBonusMultiplier;
+        require(publicMintIsOpen == true, "Public Mint Closed");
+        require(
+            quantity + (supply - 1) <= MAX_TOKENS,
+            "Not enough tokens remaining"
+        );
 
         for (uint256 i = 0; i < quantity; i++) {
             _tokenSupply.increment();
@@ -157,7 +181,10 @@ contract GenericNFTPumpContract is Ownable, ERC721, ERC721URIStorage, PaymentSpl
 
     function teamMint(address to, uint256 amount) external onlyOwner {
         uint256 supply = _tokenSupply.current();
-        require((supply-1) + amount <= MAX_TOKENS, "Not enough tokens remaining");
+        require(
+            (supply - 1) + amount <= MAX_TOKENS,
+            "Not enough tokens remaining"
+        );
         for (uint256 i = 0; i < amount; i++) {
             _tokenSupply.increment();
             _safeMint(to, supply + i);
@@ -284,6 +311,4 @@ contract GenericNFTPumpContract is Ownable, ERC721, ERC721URIStorage, PaymentSpl
     function setSignerAddress(address newSigner) external onlyOwner {
         _ClaimsPassSigner = newSigner;
     }
-
-
 }
