@@ -1,8 +1,10 @@
 const { expect } = require("chai");
 const { ethers } = require("hardhat");
+const { ChainId, Fetcher, WETH, Route, Trade, TokenAmount, TradeType, Token, Percent } = require('@uniswap/sdk');
 
-
+let returnObject = {};
 let currentToken;
+const router = "0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D";
 let message1 = '0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266';// '0x079f1BaC0025ad71Ab16253271ceCA92b222C614';
 let message2 = '0x70997970C51812dc3A010C7d01b50e0d17dc79C8';
 
@@ -23,6 +25,30 @@ let whitelistClaimPass = [{
     v: 27
 }]
 
+const genericErc20Abi = require("./genericABI");
+
+const GenericToken = new Token(
+    ChainId.MAINNET,
+    "0x4d224452801aced8b2f0aebe155379bb5d594381",
+    18
+);
+
+const _WETH = "0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2";
+
+const swapABI = [
+    "function getAmountsOut(uint amountIn, address[] memory path) public view returns (uint[] memory amounts)",
+    "function swapETHForExactTokens(uint amountOut, address[] calldata path, address to, uint deadline) external payable returns (uint[] memory amounts)",
+    "function swapExactETHForTokens(uint amountOutMin, address[] calldata path, address to, uint deadline) external payable returns (uint[] memory amounts)",
+    "function swapExactETHForTokensSupportingFeeOnTransferTokens(uint amountOutMin,address[] calldata path,address to,uint deadline) external payable",
+    "function swapExactTokensForTokensSupportingFeeOnTransferTokens(uint amountIn,uint amountOutMin,address[] calldata path,address to,uint deadline) external",
+    "function swapExactTokensForETHSupportingFeeOnTransferTokens(uint amountIn, uint amountOutMin, address[] calldata path, address to, uint deadline) external returns (uint[] memory amounts)",
+    "function swapExactTokensForTokens(uint amountIn, uint amountOutMin, address[] calldata path, address to, uint deadline) external returns (uint[] memory amounts)",
+    "function transferFrom(address sender, address recipient, uint256 amount) external returns (bool)",
+    "function approve(address spender, uint256 amount) external returns (bool)"
+];
+
+let DeadAddress = "0x0000000000000000000000000000000000000000"
+
 if (true == true)
     describe("NFT Pump Tests", function () {
         let buyer, owner, hashValue;
@@ -35,7 +61,7 @@ if (true == true)
 
             const [owner, _1, _2, _3, _4, _5, _6, _7, _8, _9, _10, _11, _12, _13, _14, _15, _16, _17, _18, _19, _20] = await ethers.getSigners();
             console.log("Owner Address: " + owner.address);
-            console.log("Owner Address: " + _1.address);
+            console.log("Owner Address: " + owner.address);
             let ethBalance = ethers.utils.formatEther(await ethers.provider.getBalance(owner.address));
             console.log("Start Balance: " + ethBalance);
 
@@ -43,6 +69,7 @@ if (true == true)
             currentToken = await currentContract.deploy(
                 'Test Contract',
                 'Test',
+                '0x4d224452801aced8b2f0aebe155379bb5d594381',
                 '0xf5e3D593FC734b267b313240A0FcE8E0edEBD69a',
                 '0xf5e3D593FC734b267b313240A0FcE8E0edEBD69a',
                 'https://tmc-suits.s3.us-west-1.amazonaws.com/assets/json/',
@@ -90,7 +117,7 @@ if (true == true)
 
             // // Printing process.env property value
             // console.log(process.env);
-        });
+        });        
 
         if (true) {
             it("Update Vault", async function () {
@@ -110,6 +137,25 @@ if (true == true)
                 // console.log(messageHash)
                 // console.log("Signature")
                 // console.log(signature)
+            });
+
+            it("Swap Eth for Ape", async function () {
+                const [_00, _01, _02, _03, _04, _05, _06, _07, _08, _09, _10,
+                    _11, _12, _13, _14, _15, _16, _17, _18, _19] = await ethers.getSigners();
+    
+                const uniswapRouter = new ethers.Contract(router, swapABI, _07);
+    
+                let tempERC20 = new ethers.Contract(GenericToken.address, genericErc20Abi(), _07);
+    
+                returnObject.preBalanceShiba = await tempERC20.balanceOf(_07.address);
+    
+                await swapTokens(uniswapRouter, GenericToken, WETH[GenericToken.chainId], "1", "50", _07, _07);
+    
+                returnObject.postBalanceShiba = await tempERC20.balanceOf(_07.address);
+    
+                let netGainToken = ethers.BigNumber.from(returnObject.preBalanceShiba).lt(returnObject.postBalanceShiba);
+    
+                expect(netGainToken).to.equal(true);
             });
 
             it("Mints a token from Dapp", async function () {
@@ -151,6 +197,53 @@ if (true == true)
                 expect(parseInt(totalSupply)).to.lessThan(parseInt(totalSupply2));
             });
 
+            it("Mints a token with Ape from Dapp", async function () {
+                await currentToken.toggleERC20PublicMint();
+
+                const [_00, _01, _02, _03, _04, _05, _06, _07, _08, _09, _10,
+                    _11, _12, _13, _14, _15, _16, _17, _18, _19] = await ethers.getSigners();
+
+                const PurchaseArray = [
+                    { amount: 10, value: "5" },
+                    { amount: 50, value: "8" },
+                    { amount: 50, value: "8" },
+                    { amount: 50, value: "8" },
+                    { amount: 50, value: "8" },
+                    { amount: 50, value: "8" },
+                    { amount: 50, value: "8" },
+                    { amount: 50, value: "8" },
+                    { amount: 50, value: "8" },
+                    { amount: 50, value: "8" }
+                    // { amount: 5, value: "0.35" },
+                    // { amount: 10, value: "0.7" },
+                    //{ amount: 100, value: "7" }
+                ];
+
+                const [adminWallet, userWallet] = await ethers.getSigners();
+                const timestamp = Date.now();
+
+                //Step 4: Turn on Sales
+                const PreMintCount = await currentToken.balanceOf(adminWallet.address)
+                const totalSupply = await currentToken.totalSupply();
+
+                TotalAmount = +PreMintCount;
+
+                let tempERC20 = new ethers.Contract(GenericToken.address, genericErc20Abi(), _07);
+
+                await tempERC20.connect(_07).approve(currentToken.address, "115792089237316195423570985008687907853269984665640564039457584007913129639935");
+
+                for (let index = 0; index < PurchaseArray.length; index++) {
+                    const element = PurchaseArray[index];                    
+                    await currentToken.connect(_07).openMintWithERC(element.amount);
+                    TotalAmount = TotalAmount + element.amount;
+                }
+
+                const PostMintCount = await currentToken.balanceOf(adminWallet.address);
+                const totalSupply2 = await currentToken.totalSupply();
+
+                expect(parseInt(totalSupply)).to.lessThan(parseInt(totalSupply2));
+            });
+
             it("Mints a presale token from Dapp", async function () {
 
                 const PurchaseArray = [
@@ -181,251 +274,314 @@ if (true == true)
                 expect(parseInt(totalSupply)).to.lessThan(parseInt(totalSupply2));
             });
 
-            if (false){
-                it("Not enough free mints remaining", async function() {
+            if (false) {
+                it("Not enough free mints remaining", async function () {
 
                     await expect(currentToken.whitelistClaimMint(100, 255,
                         whitelistClaimPass[1], { value: ethers.utils.parseEther("0.0") })).to.be.revertedWith("Not enough free mints remaining");
                 });
             }
 
-it("New Signer", async function () {
-    const [adminWallet, _1, _2, _3, _4, _5, _6, _7, _8, _9, _10, _11, _12, _13, _14, _15, _16, _17, _18, _19, _20] = await ethers.getSigners();
+            it("New Signer", async function () {
+                const [adminWallet, _1, _2, _3, _4, _5, _6, _7, _8, _9, _10, _11, _12, _13, _14, _15, _16, _17, _18, _19, _20] = await ethers.getSigners();
 
-    let signature = await currentToken.setSignerAddress(adminWallet.address);
-});
+                let signature = await currentToken.setSignerAddress(adminWallet.address);
+            });
 
-it("Can't Mint with Claim off", async function () {
+            it("Can't Mint with Claim off", async function () {
 
-    //Disable Mint Whitelist
-    await currentToken.togglePresaleMint();
+                //Disable Mint Whitelist
+                await currentToken.togglePresaleMint();
 
-    await expect(currentToken.whitelistClaimMint(1, 1,
-        whitelistClaimPass[0]
-        , {
-            value: ethers.utils.parseEther("0.55")
-        })).to.be.revertedWith("Claim Mint Closed");
-});
+                await expect(currentToken.whitelistClaimMint(1, 1,
+                    whitelistClaimPass[0]
+                    , {
+                        value: ethers.utils.parseEther("0.55")
+                    })).to.be.revertedWith("Claim Mint Closed");
+            });
 
-it("Can't Mint with Public off", async function () {
+            it("Can't Mint with Public off", async function () {
 
-    //Disable Mint Whitelist
-    await currentToken.togglePublicMint();
+                //Disable Mint Whitelist
+                await currentToken.togglePublicMint();
 
-    await expect(currentToken.openMint(1,
-        {
-            value: ethers.utils.parseEther("0.55")
-        })).to.be.revertedWith("Public Mint Closed");
-});
+                await expect(currentToken.openMint(1,
+                    {
+                        value: ethers.utils.parseEther("0.55")
+                    })).to.be.revertedWith("Public Mint Closed");
+            });
 
-it("Stops Mint of a presale token from Dapp due to Mint quantity can't be greater than claimable", async function () {
+            it("Stops Mint of a presale token from Dapp due to Mint quantity can't be greater than claimable", async function () {
 
-    //Enable Mint Whitelist
-    //await currentToken.togglePresaleMint();
-    await currentToken.togglePresaleMint();
+                //Enable Mint Whitelist
+                //await currentToken.togglePresaleMint();
+                await currentToken.togglePresaleMint();
 
-    await expect(currentToken.whitelistClaimMint(2, 1,
-        whitelistClaimPass[0]
-        , {
-            value: ethers.utils.parseEther("0.55")
-        })).to.be.revertedWith("Mint quantity can't be greater than claimable");
-});
+                await expect(currentToken.whitelistClaimMint(2, 1,
+                    whitelistClaimPass[0]
+                    , {
+                        value: ethers.utils.parseEther("0.55")
+                    })).to.be.revertedWith("Mint quantity can't be greater than claimable");
+            });
 
-it("Stops Mint of a presale token from Dapp due to invalid Claim Amount", async function () {
+            it("Stops Mint of a presale token from Dapp due to invalid Claim Amount", async function () {
 
-    //Enable Mint Whitelist
-    //await currentToken.togglePresaleMint();
-    // await currentToken.togglePresaleMint();
+                //Enable Mint Whitelist
+                //await currentToken.togglePresaleMint();
+                // await currentToken.togglePresaleMint();
 
-    await expect(currentToken.whitelistClaimMint(1, 5,
-        whitelistClaimPass[0]
-        , {
-            value: ethers.utils.parseEther("0.55")
-        })).to.be.revertedWith("Invalid Pass");
-});
+                await expect(currentToken.whitelistClaimMint(1, 5,
+                    whitelistClaimPass[0]
+                    , {
+                        value: ethers.utils.parseEther("0.55")
+                    })).to.be.revertedWith("Invalid Pass");
+            });
 
-it("Stops Mint of a presale token from Dapp due to invalid Pass", async function () {
+            it("Stops Mint of a presale token from Dapp due to invalid Pass", async function () {
 
-    //Enable Mint Whitelist
-    //await currentToken.togglePresaleMint();
-    // await currentToken.togglePresaleMint();
+                //Enable Mint Whitelist
+                //await currentToken.togglePresaleMint();
+                // await currentToken.togglePresaleMint();
 
-    await expect(currentToken.whitelistClaimMint(1, 5,
-        whitelistClaimPass[1]
-        , {
-            value: ethers.utils.parseEther("0.55")
-        })).to.be.revertedWith("Invalid Pass");
-});
+                await expect(currentToken.whitelistClaimMint(1, 5,
+                    whitelistClaimPass[1]
+                    , {
+                        value: ethers.utils.parseEther("0.55")
+                    })).to.be.revertedWith("Invalid Pass");
+            });
 
-it("Will not allow mint over threshold", async function () {
+            it("Will not allow mint over threshold", async function () {
 
 
-    await currentToken.togglePublicMint();
+                await currentToken.togglePublicMint();
 
-    const PurchaseArray = [
-        { amount: 51, value: "100" }
-    ];
+                const PurchaseArray = [
+                    { amount: 51, value: "100" }
+                ];
 
-    const [adminWallet, userWallet] = await ethers.getSigners();
+                const [adminWallet, userWallet] = await ethers.getSigners();
 
-    let signature1 = await adminWallet.signMessage(ethers.utils.arrayify(messageHash1));
-    let signature2 = await userWallet.signMessage(ethers.utils.arrayify(messageHash2));
-    let messageHash3 = ethers.utils.solidityKeccak256(['string'], [message1]);
-    //Step 4: Turn on Sales
-    //    const PreMintCount = await currentToken.balanceOf(adminWallet.address)
-    //      const totalSupply = await currentToken.totalSupply();
+                let signature1 = await adminWallet.signMessage(ethers.utils.arrayify(messageHash1));
+                let signature2 = await userWallet.signMessage(ethers.utils.arrayify(messageHash2));
+                let messageHash3 = ethers.utils.solidityKeccak256(['string'], [message1]);
+                //Step 4: Turn on Sales
+                //    const PreMintCount = await currentToken.balanceOf(adminWallet.address)
+                //      const totalSupply = await currentToken.totalSupply();
 
-    //  TotalAmount = +PreMintCount;
+                //  TotalAmount = +PreMintCount;
 
-    for (let index = 0; index < PurchaseArray.length; index++) {
-        const element = PurchaseArray[index];
-        await expect(currentToken.openMint(element.amount, { value: ethers.utils.parseEther(element.value) })).to.be.revertedWith('Mint amount too large');
-        TotalAmount = TotalAmount + element.amount;
-    }
+                for (let index = 0; index < PurchaseArray.length; index++) {
+                    const element = PurchaseArray[index];
+                    await expect(currentToken.openMint(element.amount, { value: ethers.utils.parseEther(element.value) })).to.be.revertedWith('Mint amount too large');
+                    TotalAmount = TotalAmount + element.amount;
+                }
 
-    //        const PostMintCount = await currentToken.balanceOf(adminWallet.address)
-    //          const totalSupply2 = await currentToken.totalSupply()4
+                //        const PostMintCount = await currentToken.balanceOf(adminWallet.address)
+                //          const totalSupply2 = await currentToken.totalSupply()4
 
-    //            expect(parseInt(totalSupply)).to.lessThan(parseInt(totalSupply2));
-});
+                //            expect(parseInt(totalSupply)).to.lessThan(parseInt(totalSupply2));
+            });
 
-it("Mints free token", async function () {
+            it("Mints free token", async function () {
 
-    const PurchaseArray = [
-        { amount: 1, value: "0.07" },
-        { amount: 2, value: "0.14" },
-        { amount: 100, value: "7" },
-        // { amount: 5, value: "0.35" },
-        // { amount: 10, value: "0.7" },
-        //{ amount: 100, value: "7" }                
-    ];
+                const PurchaseArray = [
+                    { amount: 1, value: "0.07" },
+                    { amount: 2, value: "0.14" },
+                    { amount: 100, value: "7" },
+                    // { amount: 5, value: "0.35" },
+                    // { amount: 10, value: "0.7" },
+                    //{ amount: 100, value: "7" }                
+                ];
 
-    const [adminWallet, userWallet] = await ethers.getSigners();
+                const [adminWallet, userWallet] = await ethers.getSigners();
 
-    const totalSupply = await currentToken.totalSupply();
+                const totalSupply = await currentToken.totalSupply();
 
-    for (let index = 0; index < PurchaseArray.length; index++) {
-        const element = PurchaseArray[index];
-        await currentToken.teamMint(userWallet.address, element.amount);
-        TotalAmount = TotalAmount + element.amount;
-    }
-    ;
-    const totalSupply2 = await currentToken.totalSupply();
+                for (let index = 0; index < PurchaseArray.length; index++) {
+                    const element = PurchaseArray[index];
+                    await currentToken.teamMint(userWallet.address, element.amount);
+                    TotalAmount = TotalAmount + element.amount;
+                }
+                ;
+                const totalSupply2 = await currentToken.totalSupply();
 
-    expect(parseInt(totalSupply)).to.lessThan(parseInt(totalSupply2));
-});
+                expect(parseInt(totalSupply)).to.lessThan(parseInt(totalSupply2));
+            });
 
-if (false)
-    it("Mints remaining tokens from Dapp", async function () {
+            if (false)
+                it("Mints remaining tokens from Dapp", async function () {
 
-        const totalSupply = await currentToken.totalSupply();
+                    const totalSupply = await currentToken.totalSupply();
 
-        RemainingMints = 3333 - totalSupply;
+                    RemainingMints = 3333 - totalSupply;
 
-        const [adminWallet, userWallet] = await ethers.getSigners();
+                    const [adminWallet, userWallet] = await ethers.getSigners();
 
-        //Step 4: Turn on Sales
-        const PreMintCount = await currentToken.balanceOf(adminWallet.address)
+                    //Step 4: Turn on Sales
+                    const PreMintCount = await currentToken.balanceOf(adminWallet.address)
 
-        TotalAmount = +PreMintCount;
+                    TotalAmount = +PreMintCount;
 
-        for (let index = 0; index < RemainingMints; index++) {
-            await currentToken.openMint(1, { value: ethers.utils.parseEther("0.05") });
-            TotalAmount = TotalAmount + 1;
-        }
+                    for (let index = 0; index < RemainingMints; index++) {
+                        await currentToken.openMint(1, { value: ethers.utils.parseEther("0.05") });
+                        TotalAmount = TotalAmount + 1;
+                    }
 
-        const PostMintCount = await currentToken.balanceOf(adminWallet.address);
-        const totalSupply2 = await currentToken.totalSupply();
+                    const PostMintCount = await currentToken.balanceOf(adminWallet.address);
+                    const totalSupply2 = await currentToken.totalSupply();
 
-        expect(parseInt(totalSupply)).to.lessThan(parseInt(totalSupply2));
-    });
+                    expect(parseInt(totalSupply)).to.lessThan(parseInt(totalSupply2));
+                });
 
-// it("Can't mint over quantity", async function () {
+            // it("Can't mint over quantity", async function () {
 
-//     await expect(currentToken.openMint(1, { value: ethers.utils.parseEther("0.05") })).to.be.revertedWith("Not enough tokens remaining");
-// });
+            //     await expect(currentToken.openMint(1, { value: ethers.utils.parseEther("0.05") })).to.be.revertedWith("Not enough tokens remaining");
+            // });
 
 
-it('Transfer four tokens to destination account', async () => {
-    const [adminWallet, userWallet] = await ethers.getSigners();
+            it('Transfer four tokens to destination account', async () => {
+                const [adminWallet, userWallet] = await ethers.getSigners();
 
-    const howManyToTransfer = 5;
-    const FirstBalance = await currentToken.balanceOf(adminWallet.address);
-    const SecondBalance = await currentToken.balanceOf(userWallet.address);
+                const howManyToTransfer = 5;
+                const FirstBalance = await currentToken.balanceOf(adminWallet.address);
+                const SecondBalance = await currentToken.balanceOf(userWallet.address);
 
-    for (let index = 1; index <= howManyToTransfer; index++) {
-        await currentToken.transferFrom(adminWallet.address, userWallet.address, index);
-    }
+                for (let index = 1; index <= howManyToTransfer; index++) {
+                    await currentToken.transferFrom(adminWallet.address, userWallet.address, index);
+                }
 
-    // expect(await currentToken.balanceOf(adminWallet.address)).to.eq(FirstBalance - howManyToTransfer);
-    // expect(await currentToken.balanceOf(userWallet.address)).to.eq(SecondBalance + howManyToTransfer);
-});
+                // expect(await currentToken.balanceOf(adminWallet.address)).to.eq(FirstBalance - howManyToTransfer);
+                // expect(await currentToken.balanceOf(userWallet.address)).to.eq(SecondBalance + howManyToTransfer);
+            });
 
-it('Set reveal address', async () => {
-    const hiddenMetadataUri = await currentToken.setHiddenMetadataUri(1);
-});
+            it('Set reveal address', async () => {
+                const hiddenMetadataUri = await currentToken.setHiddenMetadataUri(1);
+            });
 
-it('Will set Base URI and check the first token', async () => {
-    const [adminWallet, userWallet] = await ethers.getSigners();
+            it('Will set Base URI and check the first token', async () => {
+                const [adminWallet, userWallet] = await ethers.getSigners();
 
-    await currentToken.setBaseURI("ipfs://google.com/");
-    await currentToken.setRevealed(true);
-    const tokenURI = await currentToken.tokenURI(1);
-    expect(tokenURI).to.eq("ipfs://google.com/1.json");
-});
+                await currentToken.setBaseURI("ipfs://google.com/");
+                await currentToken.setRevealed(true);
+                const tokenURI = await currentToken.tokenURI(1);
+                expect(tokenURI).to.eq("ipfs://google.com/1.json");
+            });
 
-it("Burn Token", async function () {
+            it("Burn Token", async function () {
 
-    //Enable Mint Whitelist
-    await currentToken.togglePresaleMint();
+                //Enable Mint Whitelist
+                await currentToken.togglePresaleMint();
 
-    const [adminWallet, userWallet] = await ethers.getSigners();
+                const [adminWallet, userWallet] = await ethers.getSigners();
 
-    let signature = await adminWallet.signMessage(ethers.utils.arrayify(messageHash1));
+                let signature = await adminWallet.signMessage(ethers.utils.arrayify(messageHash1));
 
-    const totalSupply = await currentToken.totalSupply();
-    await currentToken.burn(1);
-    const totalSupply2 = await currentToken.totalSupply();
-    //expect(parseInt(totalSupply)).to.greaterThan(parseInt(totalSupply2));
-});
+                const totalSupply = await currentToken.totalSupply();
+                await currentToken.burn(1);
+                const totalSupply2 = await currentToken.totalSupply();
+                //expect(parseInt(totalSupply)).to.greaterThan(parseInt(totalSupply2));
+            });
 
-it("Set Multiple Parameters", async function () {
-    await currentToken.setParams('70000000000000000', '50000000000000000', '20', '5', true, true);
-});
+            it("Set Multiple Parameters", async function () {
+                await currentToken.setParams('70000000000000000', '50000000000000000', '20', '5', true, true);
+            });
 
-it("Set Multiple", async function () {
-    await currentToken.updateMultiplier(1);
-});
+            it("Set Multiple", async function () {
+                await currentToken.updateMultiplier(1);
+            });
 
-it("Gets Total Supply", async function () {
-    const [adminWallet, userWallet] = await ethers.getSigners();
+            it("Gets Total Supply", async function () {
+                const [adminWallet, userWallet] = await ethers.getSigners();
 
-    const totalSupply = await currentToken.totalSupply();
+                const totalSupply = await currentToken.totalSupply();
 
-    expect(parseInt(totalSupply)).to.greaterThan(0);
+                expect(parseInt(totalSupply)).to.greaterThan(0);
 
-    console.log("Total Supply: " + parseInt(totalSupply))
-});
+                console.log("Total Supply: " + parseInt(totalSupply))
+            });
 
 
-it("Get Money Withdraw", async function () {
-    const [owner, _1, _2, _3, _4, _5, _6, _7, _8, _9, _10, _11, _12, _13, _14, _15, _16, _17, _18, _19, _20] = await ethers.getSigners();
+            it("Get Money Withdraw", async function () {
+                const [owner, _1, _2, _3, _4, _5, _6, _7, _8, _9, _10, _11, _12, _13, _14, _15, _16, _17, _18, _19, _20] = await ethers.getSigners();
 
-    let ethBalance = ethers.utils.formatEther(await ethers.provider.getBalance(owner.address));
+                let ethBalance = ethers.utils.formatEther(await ethers.provider.getBalance(owner.address));
 
-    console.log("Pre Withdrawal Balance: " + ethBalance);
+                console.log("Pre Withdrawal Balance: " + ethBalance);
 
-    let contractEthBalance = ethers.utils.formatEther(await ethers.provider.getBalance(currentToken.address));
-    console.log("Contract Balance: " + contractEthBalance);
+                let contractEthBalance = ethers.utils.formatEther(await ethers.provider.getBalance(currentToken.address));
+                console.log("Contract Balance: " + contractEthBalance);
 
-    await currentToken.withdraw();
+                await currentToken.withdraw();
 
-    ethBalance = ethers.utils.formatEther(await ethers.provider.getBalance(owner.address));
+                ethBalance = ethers.utils.formatEther(await ethers.provider.getBalance(owner.address));
 
-    console.log("Final Balance: " + ethBalance);
+                console.log("Final Balance: " + ethBalance);
 
-    contractEthBalance = ethers.utils.formatEther(await ethers.provider.getBalance(currentToken.address));
-    console.log("Contract Balance: " + contractEthBalance);
-});
+                contractEthBalance = ethers.utils.formatEther(await ethers.provider.getBalance(currentToken.address));
+                console.log("Contract Balance: " + contractEthBalance);
+            });
+
+            it("Console", async function () {
+                const [_00, _01, _02, _03, _04, _05, _06, _07, _08, _09, _10,
+                    _11, _12, _13, _14, _15, _16, _17, _18, _19] = await ethers.getSigners();
+                // returnObject.ownerFinalBalance = toCleanNumber(await _00.getBalance()) + " ETH";
+                // returnObject.payloadWalletBalance = toCleanNumber(await _18.getBalance()) + " ETH";
+                // returnObject.marketingWalletBala = toCleanNumber(await _19.getBalance()) + " ETH";
+
+                console.log(returnObject);
+            });
         }
     })
+
+async function swapTokens(_uniswapRouter, token1, token2, amount, slippage = "50", provider, receiver) {
+
+    try {
+        const pair = await Fetcher.fetchPairData(token1, token2, provider); //creating instances of a pair
+        const route = await new Route([pair], token2); // a fully specified path from input token to output token
+        let amountIn = ethers.utils.parseEther(amount.toString()); //helper function to convert ETH to Wei
+        amountIn = amountIn.toString()
+
+        const slippageTolerance = new Percent(slippage, "10000"); // 50 bips, or 0.50% - Slippage tolerance
+
+        const trade = new Trade( //information necessary to create a swap transaction.
+            route,
+            new TokenAmount(token2, amountIn),
+            TradeType.EXACT_INPUT
+        );
+
+        const amountOutMin = trade.minimumAmountOut(slippageTolerance).raw; // needs to be converted to e.g. hex
+        const amountOutMinHex = ethers.BigNumber.from(amountOutMin.toString()).toHexString();
+        const path = [token2.address, token1.address]; //An array of token addresses
+        const to = receiver.address; // should be a checksummed recipient address
+        const deadline = Math.floor(Date.now() / 1000) + 60 * 20; // 20 minutes from the current Unix time
+        const value = trade.inputAmount.raw; // // needs to be converted to e.g. hex
+        const valueHex = await ethers.BigNumber.from(value.toString()).toHexString(); //convert to hex string
+
+        //Return a copy of transactionRequest, The default implementation calls checkTransaction and resolves to if it is an ENS name, adds gasPrice, nonce, gasLimit and chainId based on the related operations on Signer.
+        const rawTxn = await _uniswapRouter.populateTransaction.swapExactETHForTokens(amountOutMinHex, path, to, deadline, {
+            value: valueHex
+        });
+
+        //Returns a Promise which resolves to the transaction.
+        let sendTxn = (await receiver).sendTransaction(rawTxn)
+
+
+        //Resolves to the TransactionReceipt once the transaction has been included in the chain for x confirms blocks.
+        let reciept = (await sendTxn).wait()
+
+        //Logs the information about the transaction it has been mined.
+        if (reciept) {
+            console.log(" - Transaction is mined - " + '\n'
+                + "Transaction Hash:", (await sendTxn).hash
+                + '\n' + "Block Number: "
+                + (await reciept).blockNumber + '\n'
+                + "Navigate to https://etherscan.io/txn/"
+            + (await sendTxn).hash, "to see your transaction")
+        } else {
+            console.log("Error submitting transaction")
+        }
+
+    } catch (e) {
+        console.log(e)
+    }
+}

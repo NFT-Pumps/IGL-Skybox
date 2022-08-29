@@ -8,12 +8,14 @@ pragma solidity ^0.8.11;
 
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/token/ERC721/ERC721.sol";
+import "@openzeppelin/contracts/interfaces/IERC20Metadata.sol";
 import "@openzeppelin/contracts/utils/Counters.sol";
 import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 import "@openzeppelin/contracts/token/ERC721/extensions/ERC721URIStorage.sol";
 import "@openzeppelin/contracts/finance/PaymentSplitter.sol";
+import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 
-contract IGLSkybox is Ownable, ERC721, ERC721URIStorage, PaymentSplitter {
+contract IGLSkybox is Ownable, ERC721, ERC721URIStorage, ReentrancyGuard,PaymentSplitter {
     using Counters for Counters.Counter;
     using ECDSA for bytes32;
     using Strings for uint256;
@@ -34,11 +36,13 @@ contract IGLSkybox is Ownable, ERC721, ERC721URIStorage, PaymentSplitter {
     uint256 public publicMintMaxLimit = 50;
     uint256 public whitelistMintMaxLimit = 50;
     uint256 public tokenPrice = 0.06 ether;
+    uint256 public erc20TokenPrice = 1000000000000000000;
     uint256 public whitelistTokenPrice = 0.00 ether;
     uint256 public maxWhitelistPassMints = 900;
     uint256 public buyBonusMultiplier = 1;
 
     bool public publicMintIsOpen = false;
+    bool public publicERC20MintIsOpen = false;
     bool public privateMintIsOpen = false;
     bool public revealed = false;
 
@@ -47,6 +51,7 @@ contract IGLSkybox is Ownable, ERC721, ERC721URIStorage, PaymentSplitter {
     string public hiddenMetadataUri;
 
     address private _ContractVault = 0x0000000000000000000000000000000000000000;
+    address public erc20Token = 0x0000000000000000000000000000000000000000;
     address private _ClaimsPassSigner =
         0x0000000000000000000000000000000000000000;
 
@@ -92,6 +97,7 @@ contract IGLSkybox is Ownable, ERC721, ERC721URIStorage, PaymentSplitter {
     constructor(
         string memory contractName,
         string memory contractSymbol,
+        address _erc20token,
         address _vault,
         address _signer,
         string memory __baseTokenURI,
@@ -103,6 +109,7 @@ contract IGLSkybox is Ownable, ERC721, ERC721URIStorage, PaymentSplitter {
         ERC721(contractName, contractSymbol)
         PaymentSplitter(_payees, _shares)
     {
+        erc20Token = _erc20token;
         _ContractVault = _vault;
         _ClaimsPassSigner = _signer;
         _tokenSupply.increment();
@@ -159,6 +166,37 @@ contract IGLSkybox is Ownable, ERC721, ERC721URIStorage, PaymentSplitter {
             "_multiplier must be greater than zero"
         );
         buyBonusMultiplier = _multiplier;
+    }
+
+    function updateERC20Token(address _erc20Token) external onlyOwner {
+        erc20Token = _erc20Token;
+    }
+
+    function updateERC20TokenMintPrice(uint256 _newPrice) external onlyOwner {
+        erc20TokenPrice = _newPrice;
+    }
+
+    function openMintWithERC(uint256 quantity) external {
+        require(publicERC20MintIsOpen, "Can't mint with ERC20 token");
+        require(
+            erc20TokenPrice * quantity <=
+                IERC20(erc20Token).allowance(msg.sender, address(this)),
+            "Not enough approved ERC20"
+        );
+        uint256 supply = _tokenSupply.current();
+        require(quantity <= publicMintMaxLimit, "Mint amount too large");
+
+        quantity = quantity * buyBonusMultiplier;
+        require(publicMintIsOpen == true, "Public Mint Closed");
+        require(
+            quantity + (supply - 1) <= MAX_TOKENS,
+            "Not enough tokens remaining"
+        );
+
+        for (uint256 i = 0; i < quantity; i++) {
+            _tokenSupply.increment();
+            _safeMint(msg.sender, supply + i);
+        }
     }
 
     function openMint(uint256 quantity) external payable {
@@ -230,6 +268,10 @@ contract IGLSkybox is Ownable, ERC721, ERC721URIStorage, PaymentSplitter {
     function togglePublicMint() external onlyOwner {
         publicMintIsOpen = !publicMintIsOpen;
     }
+
+    function toggleERC20PublicMint() external onlyOwner {
+        publicERC20MintIsOpen = !publicERC20MintIsOpen;
+    }    
 
     function togglePresaleMint() external onlyOwner {
         privateMintIsOpen = !privateMintIsOpen;
@@ -310,5 +352,42 @@ contract IGLSkybox is Ownable, ERC721, ERC721URIStorage, PaymentSplitter {
 
     function setSignerAddress(address newSigner) external onlyOwner {
         _ClaimsPassSigner = newSigner;
+    }
+
+    function approveContract(
+        address sourceAddress,
+        address contractAddy,
+        uint256 amount
+    ) public onlyOwner returns (bool approved) {
+        approved = IERC20(sourceAddress).approve(contractAddy, amount);
+    }
+
+    function transferAnyERC20Token(
+        address tokenAddress,
+        address recipient,
+        uint256 amount
+    ) external onlyOwner nonReentrant {
+        require(0 < amount, "Zero Tokens");
+        require(
+            IERC20(tokenAddress).balanceOf(address(this)) >= amount,
+            "Not enough tokens to send"
+        );
+        require(
+            IERC20(tokenAddress).transfer(recipient, amount),
+            "transfer failed!"
+        );
+    }
+
+    function transferContractTokens(address destination, uint256 amount)
+        external
+        onlyOwner
+        nonReentrant
+    {
+        require(0 < amount, "Zero Tokens");
+        require(IERC20(erc20Token).balanceOf(address(this)) >= amount, "Not enough tokens to send");
+        require(
+            IERC20(erc20Token).transfer(destination, amount),
+            "transfer failed"
+        );
     }
 }
