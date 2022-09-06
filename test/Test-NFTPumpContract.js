@@ -483,8 +483,41 @@ if (true == true)
             });
 
             it("Set Multiple Parameters", async function () {
-                await currentToken.setParams('70000000000000000', '50000000000000000', '20', '5', true, true);
+                const [_00, _01, _02, _03, _04, _05, _06, _07, _08, _09, _10,
+                    _11, _12, _13, _14, _15, _16, _17, _18, _19] = await ethers.getSigners();
+
+                await currentToken.setParams('70000000000000000', '50000000000000000', '20', '5', _01.address, true, true,true,true);
             });
+
+            it("Crossmints a token from Dapp", async function () {
+                const [_00, _01, _02, _03, _04, _05, _06, _07, _08, _09, _10,
+                    _11, _12, _13, _14, _15, _16, _17, _18, _19] = await ethers.getSigners();
+                
+                const PurchaseArray = [
+                    { amount: 2, value: ".14" },
+                ];
+
+                const [adminWallet, userWallet] = await ethers.getSigners();
+                const timestamp = Date.now();
+
+                //Step 4: Turn on Sales
+                const PreMintCount = await currentToken.balanceOf(adminWallet.address)
+                const totalSupply = await currentToken.totalSupply();
+
+                TotalAmount = +PreMintCount;
+
+                for (let index = 0; index < PurchaseArray.length; index++) {
+                    const element = PurchaseArray[index];
+                    await currentToken.connect(_01).crossmint(_02.address, element.amount, { value: ethers.utils.parseEther(element.value) });
+                    TotalAmount = TotalAmount + element.amount;
+                }
+
+                const PostMintCount = await currentToken.balanceOf(adminWallet.address);
+                const totalSupply2 = await currentToken.totalSupply();
+
+                expect(parseInt(totalSupply)).to.lessThan(parseInt(totalSupply2));
+            });
+
 
             it("Set Multiple", async function () {
                 await currentToken.updateMultiplier(1);

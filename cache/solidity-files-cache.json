@@ -2,8 +2,8 @@
   "_format": "hh-sol-cache-2",
   "files": {
     "C:\\Users\\joser\\OneDrive\\Documents\\GitHub\\IGL-Skybox\\contracts\\IGLSkybox.sol": {
-      "lastModificationDate": 1661755726894,
-      "contentHash": "1d1d3a49b1603aac71749f79a2579109",
+      "lastModificationDate": 1662489464391,
+      "contentHash": "b4f3b458d3d3d36fdba4a444925af480",
       "sourceName": "contracts/IGLSkybox.sol",
       "solcConfig": {
         "version": "0.8.11",

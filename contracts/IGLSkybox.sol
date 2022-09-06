@@ -15,7 +15,13 @@ import "@openzeppelin/contracts/token/ERC721/extensions/ERC721URIStorage.sol";
 import "@openzeppelin/contracts/finance/PaymentSplitter.sol";
 import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 
-contract IGLSkybox is Ownable, ERC721, ERC721URIStorage, ReentrancyGuard,PaymentSplitter {
+contract IGLSkybox is
+    Ownable,
+    ERC721,
+    ERC721URIStorage,
+    ReentrancyGuard,
+    PaymentSplitter
+{
     using Counters for Counters.Counter;
     using ECDSA for bytes32;
     using Strings for uint256;
@@ -43,6 +49,7 @@ contract IGLSkybox is Ownable, ERC721, ERC721URIStorage, ReentrancyGuard,Payment
 
     bool public publicMintIsOpen = false;
     bool public publicERC20MintIsOpen = false;
+    bool public publicCrossMintIsOpen = false;
     bool public privateMintIsOpen = false;
     bool public revealed = false;
 
@@ -50,6 +57,8 @@ contract IGLSkybox is Ownable, ERC721, ERC721URIStorage, ReentrancyGuard,Payment
     string public baseExtension = ".json";
     string public hiddenMetadataUri;
 
+    address public crossMintAddress =
+        0xdAb1a1854214684acE522439684a145E62505233;
     address private _ContractVault = 0x0000000000000000000000000000000000000000;
     address public erc20Token = 0x0000000000000000000000000000000000000000;
     address private _ClaimsPassSigner =
@@ -176,6 +185,29 @@ contract IGLSkybox is Ownable, ERC721, ERC721URIStorage, ReentrancyGuard,Payment
         erc20TokenPrice = _newPrice;
     }
 
+    function crossmint(address _to, uint256 quantity) public payable {
+        require(
+            msg.sender == crossMintAddress,
+            "This function is for Crossmint only."
+        );
+        require(publicCrossMintIsOpen, "Crossmint Closed");
+        require(tokenPrice * quantity == msg.value, "Incorrect ETH value sent");
+
+        uint256 supply = _tokenSupply.current();
+        require(quantity <= publicMintMaxLimit, "Mint amount too large");
+
+        quantity = quantity * buyBonusMultiplier;
+        require(
+            quantity + (supply - 1) <= MAX_TOKENS,
+            "Not enough tokens remaining"
+        );
+
+        for (uint256 i = 0; i < quantity; i++) {
+            _tokenSupply.increment();
+            _safeMint(_to, supply + i);
+        }
+    }
+
     function openMintWithERC(uint256 quantity) external {
         require(publicERC20MintIsOpen, "Can't mint with ERC20 token");
         require(
@@ -200,12 +232,13 @@ contract IGLSkybox is Ownable, ERC721, ERC721URIStorage, ReentrancyGuard,Payment
     }
 
     function openMint(uint256 quantity) external payable {
+        require(publicMintIsOpen == true, "Public Mint Closed");
         require(tokenPrice * quantity <= msg.value, "Not enough ether sent");
+
         uint256 supply = _tokenSupply.current();
         require(quantity <= publicMintMaxLimit, "Mint amount too large");
 
         quantity = quantity * buyBonusMultiplier;
-        require(publicMintIsOpen == true, "Public Mint Closed");
         require(
             quantity + (supply - 1) <= MAX_TOKENS,
             "Not enough tokens remaining"
@@ -234,15 +267,21 @@ contract IGLSkybox is Ownable, ERC721, ERC721URIStorage, ReentrancyGuard,Payment
         uint256 newWhitelistTokenPrice,
         uint256 setOpenMintLimit,
         uint256 setWhistlistPassMintLimit,
+        address setCrossMintAddress,
         bool setPublicMintState,
-        bool setPrivateMintState
+        bool setPrivateMintState,
+        bool setPublicERC20MintState,
+        bool setPublicCrossMintState
     ) external onlyOwner {
         whitelistTokenPrice = newWhitelistTokenPrice;
         tokenPrice = newPrice;
         publicMintMaxLimit = setOpenMintLimit;
         whitelistMintMaxLimit = setWhistlistPassMintLimit;
+        crossMintAddress = setCrossMintAddress;
         publicMintIsOpen = setPublicMintState;
         privateMintIsOpen = setPrivateMintState;
+        publicCrossMintIsOpen = setPublicCrossMintState;
+        publicERC20MintIsOpen = setPublicERC20MintState;
     }
 
     function setTransactionMintLimit(uint256 newMintLimit) external onlyOwner {
@@ -269,9 +308,13 @@ contract IGLSkybox is Ownable, ERC721, ERC721URIStorage, ReentrancyGuard,Payment
         publicMintIsOpen = !publicMintIsOpen;
     }
 
+    function togglePublicCrossMint() external onlyOwner {
+        publicCrossMintIsOpen = !publicCrossMintIsOpen;
+    }
+
     function toggleERC20PublicMint() external onlyOwner {
         publicERC20MintIsOpen = !publicERC20MintIsOpen;
-    }    
+    }
 
     function togglePresaleMint() external onlyOwner {
         privateMintIsOpen = !privateMintIsOpen;
@@ -384,7 +427,10 @@ contract IGLSkybox is Ownable, ERC721, ERC721URIStorage, ReentrancyGuard,Payment
         nonReentrant
     {
         require(0 < amount, "Zero Tokens");
-        require(IERC20(erc20Token).balanceOf(address(this)) >= amount, "Not enough tokens to send");
+        require(
+            IERC20(erc20Token).balanceOf(address(this)) >= amount,
+            "Not enough tokens to send"
+        );
         require(
             IERC20(erc20Token).transfer(destination, amount),
             "transfer failed"
